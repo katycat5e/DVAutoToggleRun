@@ -55,7 +55,7 @@ namespace DVAutoToggleRun
         }
     }
 
-    internal class ATR_Settings : UnityModManager.ModSettings, IDrawable
+    public class ATR_Settings : UnityModManager.ModSettings, IDrawable
     {
         [Draw("Prefer walking on rolling stock")]
         public bool WagonsPreferWalk = false;
