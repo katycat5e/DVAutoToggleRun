@@ -8,20 +8,39 @@ namespace DVAutoToggleRun
     public static class AutoToggleRunMain
     {
         public static UnityModManager.ModEntry ModEntry;
-        private static ATR_Settings Settings;
-        private static bool wasOnWalkCar = false;
+        public static ATR_Settings Settings;
+        private static bool wasWalking = false;
 
-        public static bool Load( UnityModManager.ModEntry modEntry )
+        public static bool Load(UnityModManager.ModEntry modEntry)
         {
             ModEntry = modEntry;
-
-            WorldStreamingInit.LoadingFinished += OnWorldLoaded;
-            PlayerManager.CarChanged += OnPlayerCarChanged;
+            modEntry.OnToggle += OnToggle;
 
             // Load preferences
             Settings = UnityModManager.ModSettings.Load<ATR_Settings>(ModEntry);
             ModEntry.OnGUI = DrawGUI;
             ModEntry.OnSaveGUI = SaveGUI;
+
+            return true;
+        }
+
+        private static bool OnToggle(UnityModManager.ModEntry modEntry, bool enable)
+        {
+            if (enable)
+            {
+                WorldStreamingInit.LoadingFinished += OnWorldLoaded;
+                PlayerManager.CarChanged += OnPlayerCarChanged;
+
+                if (WorldStreamingInit.IsLoaded)
+                {
+                    OnWorldLoaded();
+                }
+            }
+            else
+            {
+                WorldStreamingInit.LoadingFinished -= OnWorldLoaded;
+                PlayerManager.CarChanged -= OnPlayerCarChanged;
+            }
 
             return true;
         }
@@ -32,24 +51,27 @@ namespace DVAutoToggleRun
             OnPlayerCarChanged(PlayerManager.Car);
         }
 
-        internal static void OnPlayerCarChanged( TrainCar newCar )
+        public static void OnPlayerCarChanged(TrainCar newCar)
         {
-            bool onWalkCar = (newCar != null) && (Settings.WagonsPreferWalk || CarTypes.IsAnyLocomotiveOrTender(newCar.carType));
+            bool shouldWalk = (newCar != null) && 
+                (Settings.WagonsPreferWalk ||
+                CarTypes.IsAnyLocomotiveOrTender(newCar.carType) ||
+                CarTypes.IsCaboose(newCar.carType));
 
-            if( onWalkCar ^ wasOnWalkCar )
+            if (shouldWalk != wasWalking)
             {
-                GamePreferences.Set(Preferences.AlwaysRunToggle, !onWalkCar);
-                ModEntry.Logger.Log($"Set autorun to {onWalkCar}");
-                wasOnWalkCar = onWalkCar;
+                GamePreferences.Set(Preferences.AlwaysRunToggle, !shouldWalk);
+                ModEntry.Logger.Log($"Set autorun to {shouldWalk}");
+                wasWalking = shouldWalk;
             }
         }
 
-        static void DrawGUI( UnityModManager.ModEntry entry )
+        static void DrawGUI(UnityModManager.ModEntry entry)
         {
             Settings.Draw(entry);
         }
 
-        static void SaveGUI( UnityModManager.ModEntry entry )
+        static void SaveGUI(UnityModManager.ModEntry entry)
         {
             Settings.Save(entry);
         }
@@ -60,7 +82,7 @@ namespace DVAutoToggleRun
         [Draw("Prefer walking on rolling stock")]
         public bool WagonsPreferWalk = false;
 
-        public override void Save( UnityModManager.ModEntry modEntry )
+        public override void Save(UnityModManager.ModEntry modEntry)
         {
             Save(this, modEntry);
         }
